@@ -4739,7 +4739,7 @@ $methodKeys = ['skip_hit','ai_prediction','mcmc_prediction','skai_prediction','h
         [[/div]]
 
         <!-- ===== Decision Set — Your Final Pick (click-to-build) ===== -->
-        [[div data-decision-wrap style="padding:0 1rem 0.85rem; border-top:1px dashed #e3e7ef;"]]
+        [[div data-decision-wrap style="display:none; padding:0 1rem 0.85rem; border-top:1px dashed #e3e7ef;"]]
           [[div style="display:flex; align-items:flex-start; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; padding-top:0.75rem;"]]
             [[div]]
               [[div style="font-weight:800; color:#0A1A33; letter-spacing:0.01em;"]]
