@@ -402,7 +402,7 @@ echo '{loadmoduleid 126}';
 [[div id="info-card" class="skai-card info-card compact open"]]
   [[div class="skai-card__header"]]
     [[h3 class="skai-card__title"]]How This Works[[/h3]]
-    [[button id="info-toggle" type="button" aria-label="Hide info"]]&times;[[/button]]  <!-- hardened: type="button" -->
+    [[button id="info-toggle" type="button" aria-expanded="true" aria-label="Collapse info"]]&#x25BC; Collapse[[/button]]
   [[/div]]
   [[div class="skai-card__body skai-stack skai-stack--tight"]]
 
@@ -436,10 +436,16 @@ echo '{loadmoduleid 126}';
 #info-card:not(.open) .skai-card__body { display: none; }
 
 #info-toggle {
-  background: none;
-  border: none;
-  font-size: 1.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(0,0,0,0.60);
+  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 6px;
+  padding: 3px 10px;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Optional: compact switch appearance */
@@ -470,15 +476,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!isOpen) {
     card.classList.remove('open');
-    btn.setAttribute('aria-label', 'Show info');
+    btn.textContent = '\u25BA Expand';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', 'Expand info');
   } else {
-    btn.setAttribute('aria-label', 'Hide info');
+    btn.textContent = '\u25BC Collapse';
+    btn.setAttribute('aria-expanded', 'true');
+    btn.setAttribute('aria-label', 'Collapse info');
   }
 
   btn.addEventListener('click', () => {
     const open = card.classList.toggle('open');
     try { localStorage.setItem(key, open ? 'true' : 'false'); } catch (e) {}
-    btn.setAttribute('aria-label', open ? 'Hide info' : 'Show info');
+    btn.textContent = open ? '\u25BC Collapse' : '\u25BA Expand';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Collapse info' : 'Expand info');
   });
 });
 [[/script]]
