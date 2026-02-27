@@ -3011,7 +3011,7 @@ foreach ($bestOpps as $__sopp) {
 }
 [[/style]]
 
-[[div class="skai-card comparison-footer form-toolbar"]]
+[[div class="skai-card comparison-footer form-toolbar" style="display:none;"]]
 
   [[div class="toolbar-group toolbar-group-analysis"]]
     [[button type="button" id="compare-all-btn" class="btn-primary btn-insight"]]
