@@ -1183,9 +1183,9 @@ foreach ($groups as $groupKey => $g) {
         //    same two-phase logic used by the per-draw-group rendering code. ──
         if (!$__scored['has_draw']) {
             $__bkTs  = strtotime((string)$g['draw_date']);
-            $__bkKey = (int)$g['game_id'] . ':' . ($__bkTs ? date('Y-m-d', $__bkTs) : (string)$g['draw_date']);
+            $__bkKey = $g['game_id'] . ':' . ($__bkTs ? date('Y-m-d', $__bkTs) : (string)$g['draw_date']);
             if (!array_key_exists($__bkKey, $__drawCache)) {
-                $__bkRow    = getDrawByDate((int)$g['game_id'], (string)$g['draw_date'], $db);
+                $__bkRow    = getDrawByDate($g['game_id'], (string)$g['draw_date'], $db);
                 $__bkMain   = array();
                 $__bkExtra  = array();
                 if ($__bkRow !== null) {
@@ -1204,7 +1204,7 @@ foreach ($groups as $groupKey => $g) {
                         }
                     } else {
                         // Raw row: use config column names (same as per-card fallback)
-                        $__bkFields = getDrawFields((int)$g['game_id']);
+                        $__bkFields = getDrawFields($g['game_id']);
                         foreach (($__bkFields['main'] ?? array()) as $__bc) {
                             if (isset($__bkRow[$__bc]) && $__bkRow[$__bc] !== '') { $__bkMain[] = (int)$__bkRow[$__bc]; }
                         }
