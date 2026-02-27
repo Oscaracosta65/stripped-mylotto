@@ -506,7 +506,7 @@ $sourceLabels = [
     'frequency'        => 'Frequency Map',
     'mcmc_prediction'  => 'Probability Sampling',
     'heatmap'          => 'Frequency Map',
-    'skai_prediction'  => 'Hybrid Model',
+    'skai_prediction'  => 'SKAI Model',
 ];
 $__methodLabels = $sourceLabels;
 
@@ -1318,21 +1318,23 @@ if (!empty($__winnerRunIds)) {
     }
 }
 
-// Compute best-average-hits per lottery (for snapshot cards)
+// Compute best-max-hits per lottery (for snapshot cards)
 foreach ($bestOpps as $__bavLid => &$__bavOpp) {
     $__bavRuns = $__bavOpp['all_scored_runs'] ?? array();
     if (empty($__bavRuns)) {
-        $__bavOpp['best_avg_hits'] = array('run_id' => 0, 'avg_hits' => 0.0, 'scored_runs' => 0, 'last_scored_date' => '', 'display_name' => 'No scored runs yet');
+        $__bavOpp['best_avg_hits'] = array('run_id' => 0, 'max_hits' => 0, 'scored_runs' => 0, 'last_scored_date' => '', 'display_name' => 'No scored runs yet');
         continue;
     }
     $__bavByRun = array();
     foreach ($__bavRuns as $__bavR) {
         $__rid2 = (int)$__bavR['run_id'];
         if (!isset($__bavByRun[$__rid2])) {
-            $__bavByRun[$__rid2] = array('run_id' => $__rid2, 'source' => (string)$__bavR['source'], 'total' => 0, 'count' => 0, 'lastdate' => '');
+            $__bavByRun[$__rid2] = array('run_id' => $__rid2, 'source' => (string)$__bavR['source'], 'total' => 0, 'count' => 0, 'max' => 0, 'lastdate' => '');
         }
         $__bavByRun[$__rid2]['total'] += (int)$__bavR['hits'];
         $__bavByRun[$__rid2]['count']++;
+        $__hits = (int)$__bavR['hits'];
+        if ($__hits > $__bavByRun[$__rid2]['max']) { $__bavByRun[$__rid2]['max'] = $__hits; }
         $__d = (string)$__bavR['draw_date'];
         if ($__d !== '' && $__d > $__bavByRun[$__rid2]['lastdate']) {
             $__bavByRun[$__rid2]['lastdate'] = $__d;
@@ -1340,18 +1342,14 @@ foreach ($bestOpps as $__bavLid => &$__bavOpp) {
     }
     $__bavBest = null;
     foreach ($__bavByRun as $__bavEntry) {
-        $__bavAvg = $__bavEntry['count'] > 0 ? ($__bavEntry['total'] / $__bavEntry['count']) : 0;
         if ($__bavBest === null) {
             $__bavBest = $__bavEntry;
-            $__bavBest['avg'] = $__bavAvg;
         } else {
-            $__prevAvg = $__bavBest['avg'];
-            $isBetter2 = ($__bavAvg > $__prevAvg)
-                || ($__bavAvg === $__prevAvg && $__bavEntry['total'] > $__bavBest['total'])
-                || ($__bavAvg === $__prevAvg && $__bavEntry['total'] === $__bavBest['total'] && $__bavEntry['run_id'] > $__bavBest['run_id']);
+            $isBetter2 = ($__bavEntry['max'] > $__bavBest['max'])
+                || ($__bavEntry['max'] === $__bavBest['max'] && $__bavEntry['total'] > $__bavBest['total'])
+                || ($__bavEntry['max'] === $__bavBest['max'] && $__bavEntry['total'] === $__bavBest['total'] && $__bavEntry['run_id'] > $__bavBest['run_id']);
             if ($isBetter2) {
                 $__bavBest = $__bavEntry;
-                $__bavBest['avg'] = $__bavAvg;
             }
         }
     }
@@ -1364,7 +1362,7 @@ foreach ($bestOpps as $__bavLid => &$__bavOpp) {
         : $__bavLabel;
     $__bavOpp['best_avg_hits'] = array(
         'run_id'           => (int)$__bavBest['run_id'],
-        'avg_hits'         => round((float)$__bavBest['avg'], 2),
+        'max_hits'         => (int)$__bavBest['max'],
         'scored_runs'      => $__bavTotalScored,
         'last_scored_date' => (string)($__bavBest['lastdate'] ?? ''),
         'display_name'     => $__bavDisplayName,
@@ -2501,7 +2499,7 @@ foreach ($bestOpps as $__sopp) {
 [[div id="skai-global-snapshot" class="skai-global-snapshot" aria-label="Best settings snapshot" role="region"]]
   [[div class="skai-bss-header"]]
     [[h2 class="skai-bss-title"]]Best Settings Snapshot[[/h2]]
-    [[p class="skai-bss-subtitle"]]Best-performing settings per lottery (Highest Average Hits).[[/p]]
+    [[p class="skai-bss-subtitle"]]Best-performing settings per lottery (Most Hits in a single draw).[[/p]]
   [[/div]]
   [[div class="skai-snapshot-grid"]]
     [[div class="skai-snapshot-metric"]]
@@ -2524,7 +2522,7 @@ foreach ($bestOpps as $__sopp) {
       if (!$__bav || (int)($__bav['scored_runs'] ?? 0) <= 0) { continue; }
       $__snapLotName  = htmlspecialchars((string)($__sopp['lottery_name'] ?? ''), ENT_QUOTES, 'UTF-8');
       $__snapMethod   = htmlspecialchars((string)($__bav['display_name'] ?? ''), ENT_QUOTES, 'UTF-8');
-      $__snapAvgHits  = number_format((float)($__bav['avg_hits'] ?? 0), 2);
+      $__snapMaxHits  = (int)($__bav['max_hits'] ?? 0);
       $__snapScored   = (int)($__bav['scored_runs'] ?? 0);
       $__snapLastDate = htmlspecialchars((string)($__bav['last_scored_date'] ?? ''), ENT_QUOTES, 'UTF-8');
       $__snapRunId    = (int)($__bav['run_id'] ?? 0);
@@ -2539,8 +2537,8 @@ foreach ($bestOpps as $__sopp) {
       <?php endif; ?>
       [[div class="skai-bss-card__metrics"]]
         [[div class="skai-bss-card__metric skai-bss-card__metric--highlight"]]
-          [[span class="skai-bss-card__val"]]<?php echo $__snapAvgHits; ?>[[/span]]
-          [[span class="skai-bss-card__lbl"]]Avg Hits[[/span]]
+          [[span class="skai-bss-card__val"]]<?php echo $__snapMaxHits; ?>[[/span]]
+          [[span class="skai-bss-card__lbl"]]Most Hits[[/span]]
         [[/div]]
         [[div class="skai-bss-card__metric"]]
           [[span class="skai-bss-card__val"]]<?php echo $__snapScored; ?>[[/span]]
