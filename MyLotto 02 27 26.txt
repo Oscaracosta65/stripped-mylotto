@@ -1408,7 +1408,7 @@ foreach ($groups as $__gKey => $__g) {
     // Normalise draw_date to Y-m-d for the cache key.
     $__gDateTs   = strtotime((string)($__g['draw_date'] ?? ''));
     $__gDateNorm = $__gDateTs ? date('Y-m-d', $__gDateTs) : (string)($__g['draw_date'] ?? '');
-    $__fbCacheKey = (int)$__g['game_id'] . '|' . $__gDateNorm;
+    $__fbCacheKey = $__g['game_id'] . '|' . $__gDateNorm;
 
     // ── Fetch draw for this game + draw date (cached per game+date) ──
     // Primary: use the preloaded $drawMap (normalized aliases: main_0, main_1, ..., extra_ball).
@@ -1432,9 +1432,10 @@ foreach ($groups as $__gKey => $__g) {
                 if ($__gv !== 0) { $__grpExtra[] = $__gv; }
             }
         } else {
-            // Fallback: direct DB query with config-defined column names
-            $__grpFields  = getDrawFields((int)$__g['game_id']);
-            $__grpDrawRow = getDrawByDate((int)$__g['game_id'], (string)($__g['draw_date'] ?? ''), $db);
+            // Fallback: direct DB query with config-defined column names.
+            // No (int) cast on game_id — matches working sections (Placement Heatmap line 3176, stats block line 3287).
+            $__grpFields  = getDrawFields($__g['game_id']);
+            $__grpDrawRow = getDrawByDate($__g['game_id'], (string)($__g['draw_date'] ?? ''), $db);
             if ($__grpDrawRow) {
                 // Read main ball columns by their config-defined names
                 foreach (($__grpFields['main'] ?? array()) as $__gc) {
