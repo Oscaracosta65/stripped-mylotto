@@ -4391,7 +4391,7 @@ $methodKeys = ['skip_hit','ai_prediction','mcmc_prediction','skai_prediction','h
 
 [[/style]]
 
-[[div class="card decision-strip" data-decision-strip]]
+[[div class="card decision-strip" data-decision-strip style="display:none;"]]
   [[div class="decision-strip-header"]]
     [[div class="decision-strip-main-title"]]
       [[span class="label"]]Decision for this draw[[/span]]
