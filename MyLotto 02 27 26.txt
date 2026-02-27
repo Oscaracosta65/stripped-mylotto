@@ -1364,10 +1364,10 @@ unset($__bavOpp);
 // 7) Build per-lottery prediction-results summary for the comparison table.
 //    Groups ALL saved runs (scored + unscored) across all draw dates.
 //
-//    ISOLATED: this section goes DIRECTLY to the database for actual draw
-//    data using lottery_skip_config.json to determine the table name and
-//    column layout for each game.  It does NOT depend on $bestOpps,
-//    $drawMap, or $__scoredByRunId from other sections.
+//    Draw data: uses the preloaded $drawMap (built by the UNION ALL query)
+//    as the primary source -- same data used by $bestOpps / scoreRunFromDrawMap.
+//    Falls back to a direct getDrawByDate() DB call when $drawMap has no
+//    entry for a game+date (e.g. if the UNION ALL failed or returned no row).
 // ------------------------------------------------------------------
 
 // Quick lookup: run_id -> display name info (source, mode, label)
@@ -1388,8 +1388,8 @@ foreach ($savedSets as $__s) {
     );
 }
 
-// Draw cache keyed by "game_id|Y-m-d": populated once per game+date via
-// getDrawByDate() (direct DB) + getDrawFields() (config column names).
+// Draw cache keyed by "game_id|Y-m-d": populated once per game+date using
+// $drawMap (primary) or getDrawByDate() (fallback).
 $__prcDrawCache = array();
 
 // Group all runs per lottery_id
@@ -1410,33 +1410,48 @@ foreach ($groups as $__gKey => $__g) {
     $__gDateNorm = $__gDateTs ? date('Y-m-d', $__gDateTs) : (string)($__g['draw_date'] ?? '');
     $__fbCacheKey = (int)$__g['game_id'] . '|' . $__gDateNorm;
 
-    // ── Direct DB fetch for this game + draw date (cached per game+date) ──
-    // Uses lottery_skip_config.json to discover the draw table name (dbCol)
-    // and the column layout (main_ball_columns, extra_ball_column) for the
-    // game.  getDrawByDate() queries with game_id + DATE(draw_date) and
-    // returns the raw table row; getDrawFields() gives the column names so
-    // we can extract the actual drawn numbers from that row.
+    // ── Fetch draw for this game + draw date (cached per game+date) ──
+    // Primary: use the preloaded $drawMap (normalized aliases: main_0, main_1, ..., extra_ball).
+    // Fallback: call getDrawByDate() with config column names when $drawMap has no entry.
     if (!array_key_exists($__fbCacheKey, $__prcDrawCache)) {
-        $__grpFields  = getDrawFields((int)$__g['game_id']);
-        $__grpDrawRow = getDrawByDate((int)$__g['game_id'], (string)($__g['draw_date'] ?? ''), $db);
-        $__grpMain    = array();
-        $__grpExtra   = array();
-        if ($__grpDrawRow) {
-            // Read main ball columns by their config-defined names
-            foreach (($__grpFields['main'] ?? array()) as $__gc) {
-                if (isset($__grpDrawRow[$__gc]) && $__grpDrawRow[$__gc] !== '' && $__grpDrawRow[$__gc] !== null) {
-                    $__gv = (int)$__grpDrawRow[$__gc];
+        $__grpMain  = array();
+        $__grpExtra = array();
+        if (!empty($drawMap) && isset($drawMap[$__fbCacheKey])) {
+            // Use preloaded, normalized row (same source as $bestOpps / scoreRunFromDrawMap)
+            $__dmRow = $drawMap[$__fbCacheKey];
+            for ($__i = 0; $__i < 25; $__i++) {
+                $__mk = 'main_' . $__i;
+                if (isset($__dmRow[$__mk]) && $__dmRow[$__mk] !== '' && $__dmRow[$__mk] !== null) {
+                    $__gv = (int)$__dmRow[$__mk];
                     if ($__gv !== 0) { $__grpMain[] = $__gv; }
                 }
             }
-            // Read extra ball column (e.g. Powerball, Mega Ball) if configured
-            if (!empty($__grpFields['extra'])
-                && isset($__grpDrawRow[$__grpFields['extra']])
-                && $__grpDrawRow[$__grpFields['extra']] !== ''
-                && $__grpDrawRow[$__grpFields['extra']] !== null
-            ) {
-                $__gv = (int)$__grpDrawRow[$__grpFields['extra']];
+            if (isset($__dmRow['extra_ball']) && $__dmRow['extra_ball'] !== '' && $__dmRow['extra_ball'] !== null) {
+                // extra_ball is a single named alias (unlike main_0..N) because there is only one extra ball
+                $__gv = (int)$__dmRow['extra_ball'];
                 if ($__gv !== 0) { $__grpExtra[] = $__gv; }
+            }
+        } else {
+            // Fallback: direct DB query with config-defined column names
+            $__grpFields  = getDrawFields((int)$__g['game_id']);
+            $__grpDrawRow = getDrawByDate((int)$__g['game_id'], (string)($__g['draw_date'] ?? ''), $db);
+            if ($__grpDrawRow) {
+                // Read main ball columns by their config-defined names
+                foreach (($__grpFields['main'] ?? array()) as $__gc) {
+                    if (isset($__grpDrawRow[$__gc]) && $__grpDrawRow[$__gc] !== '' && $__grpDrawRow[$__gc] !== null) {
+                        $__gv = (int)$__grpDrawRow[$__gc];
+                        if ($__gv !== 0) { $__grpMain[] = $__gv; }
+                    }
+                }
+                // Read extra ball column (e.g. Powerball, Mega Ball) if configured
+                if (!empty($__grpFields['extra'])
+                    && isset($__grpDrawRow[$__grpFields['extra']])
+                    && $__grpDrawRow[$__grpFields['extra']] !== ''
+                    && $__grpDrawRow[$__grpFields['extra']] !== null
+                ) {
+                    $__gv = (int)$__grpDrawRow[$__grpFields['extra']];
+                    if ($__gv !== 0) { $__grpExtra[] = $__gv; }
+                }
             }
         }
         $__prcDrawCache[$__fbCacheKey] = array(
@@ -7502,6 +7517,36 @@ initLotteryCollapse();
 [[/script]]
 
 [[script]]
+// ============================================================
+// DEBUG: Prediction Results section diagnostics.
+// Set to true to log draw-lookup details to the console.
+// ES5-compatible; safe to leave in production (false = silent).
+// ============================================================
+var DEBUG_PRED_RESULTS = false;
+// Override via URL query string: append ?debug_pred_results=1 to enable without redeployment
+if (window.location.search && window.location.search.indexOf('debug_pred_results=1') !== -1) {
+  DEBUG_PRED_RESULTS = true;
+}
+
+(function () {
+  if (!DEBUG_PRED_RESULTS) { return; }
+  var sections = document.querySelectorAll('.prc-section');
+  for (var i = 0; i < sections.length; i++) {
+    var sec = sections[i];
+    var pending = sec.querySelectorAll('.prc-row-pending');
+    var total   = sec.querySelectorAll('tbody tr:not(.prc-section-subhead)');
+    console.log('[PRED-RESULTS] section:', sec.id,
+      '| total rows:', total.length,
+      '| upcoming rows:', pending.length);
+    var upcomingRows = sec.querySelectorAll('tr.prc-row-pending');
+    for (var j = 0; j < upcomingRows.length; j++) {
+      var cells = upcomingRows[j].querySelectorAll('td');
+      console.log('  [UPCOMING] draw date:', cells[1] ? cells[1].textContent.trim() : '?',
+        'method:', cells[2] ? cells[2].textContent.trim() : '?');
+    }
+  }
+}());
+
 // ============================================================
 // skaiPrcToggle: Collapse / expand a prediction-results table section.
 // ES5-compatible; no dependencies.
